@@ -6,6 +6,21 @@ dotenv.config();
 // Configuración del conjunto de claves remotas (JWKS)
 const JWKS = createRemoteJWKSet(new URL(process.env.JWKS_URI));
 
+// ... (imports y función validarToken existentes) ...
+
+// NUEVO: Middleware para validar rol Premium 
+export function requerirPremium(req, res, next) {
+  // Keycloak guarda los roles del reino en "realm_access.roles"
+  const roles = req.user.realm_access?.roles || [];
+
+  if (roles.includes('agente-premium')) {
+    next(); // ¡Tiene el rol! Pase usted.
+  } else {
+    // 403 Forbidden: Sabes quién soy, pero no tengo permiso.
+    res.status(403).json({ error: 'Acceso Denegado: Se requiere Nivel Premium 🔒' });
+  }
+}
+
 export async function validarToken(req, res, next) {
   try {
     // 1. Extraer el token Bearer del header
