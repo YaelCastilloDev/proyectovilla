@@ -1,41 +1,46 @@
-# ---------------------------------------------------------
-# 1. VARIABLES DE CONFIGURACIÓN (¡EDITA TU IP AQUÍ!)
-# ---------------------------------------------------------
-KEYCLOAK_BIN="/opt/keycloak/bin"
-SERVER_IP="192.168.231.129"  # <--- PON AQUÍ TU IP REAL (resultado de 'ip a')
-ADM_USER="administrador"          # Tu usuario admin de Keycloak
-ADM_PASS="12345"          # Tu password admin de Keycloak
+#!/bin/bash
 
-# ---------------------------------------------------------
-# 2. AUTENTICARSE (Login de la herramienta CLI)
-# ---------------------------------------------------------
+# ==============================================================================
+# SCRIPT DE CONFIGURACIÓN AUTOMÁTICA DE KEYCLOAK (SPYNET)
+# ==============================================================================
+
+# 1. VARIABLES DE CONFIGURACIÓN
+# ------------------------------------------------------------------------------
+KEYCLOAK_BIN="/opt/keycloak/bin"
+SERVER_IP="192.168.231.129"   # Tu IP real confirmada
+ADM_USER="administrador"      # Usuario admin de Keycloak (según tu configuración anterior)
+ADM_PASS="12345"              # Password admin de Keycloak
+
+# 2. AUTENTICACIÓN EN KEYCLOAK CLI
+# ------------------------------------------------------------------------------
+echo "🔌 Conectando a Keycloak CLI..."
 cd $KEYCLOAK_BIN
 
-# Nos logueamos contra el master para tener permisos de crear cosas
+# Nos logueamos en el realm 'master' para tener permisos administrativos
 ./kcadm.sh config credentials --server http://localhost:8080 --realm master --user $ADM_USER --password $ADM_PASS
 
-echo "✅ Autenticado correctamente en Keycloak CLI"
+if [ $? -eq 0 ]; then
+    echo "✅ Autenticado correctamente."
+else
+    echo "❌ Error de autenticación. Verifica que Keycloak esté corriendo y el usuario/pass sean correctos."
+    exit 1
+fi
 
-# ---------------------------------------------------------
 # 3. CREAR EL REALM "spynet-realm"
-# ---------------------------------------------------------
-# Creamos el reino y lo habilitamos
+# ------------------------------------------------------------------------------
+echo "🏰 Creando Realm 'spynet-realm'..."
 ./kcadm.sh create realms -s realm=spynet-realm -s enabled=true
 
-echo "✅ Realm 'spynet-realm' creado"
-
-# ---------------------------------------------------------
-# 4. CREAR ROLES (nivel-00 y agente-premium)
-# ---------------------------------------------------------
+# 4. CREAR ROLES
+# ------------------------------------------------------------------------------
+echo "🏷️ Creando roles..."
 ./kcadm.sh create roles -r spynet-realm -s name=nivel-00
 ./kcadm.sh create roles -r spynet-realm -s name=agente-premium
 
-echo "✅ Roles creados"
-
-# ---------------------------------------------------------
 # 5. CREAR EL CLIENTE (BFF)
-# ---------------------------------------------------------
-# OJO: Aquí configuramos las Redirect URIs y Web Origins usando tu IP
+# ------------------------------------------------------------------------------
+echo "💻 Creando Cliente 'agente-web-client'..."
+# Configuramos redirectUris y WebOrigins con tu IP para que funcione desde Windows
 ./kcadm.sh create clients -r spynet-realm \
   -s clientId=agente-web-client \
   -s enabled=true \
@@ -46,12 +51,11 @@ echo "✅ Roles creados"
   -s "webOrigins=[\"+\"]" \
   -s protocol=openid-connect
 
-echo "✅ Cliente 'agente-web-client' configurado para IP: $SERVER_IP"
+# 6. CREAR USUARIOS
+# ------------------------------------------------------------------------------
+echo "busts_in_silhouette: Creando usuarios..."
 
-# ---------------------------------------------------------
-# 6. CREAR USUARIO "pepo" Y ASIGNAR PASSWORD
-# ---------------------------------------------------------
-# Crear usuario
+# --- USUARIO 1: PEPO ---
 ./kcadm.sh create users -r spynet-realm \
   -s username=pepo \
   -s enabled=true \
@@ -59,6 +63,7 @@ echo "✅ Cliente 'agente-web-client' configurado para IP: $SERVER_IP"
   -s firstName="Agente" \
   -s lastName="Pepo"
 
+# --- USUARIO 2: PEZ ---
 ./kcadm.sh create users -r spynet-realm \
   -s username=pez \
   -s enabled=true \
@@ -66,18 +71,26 @@ echo "✅ Cliente 'agente-web-client' configurado para IP: $SERVER_IP"
   -s firstName="Agente" \
   -s lastName="Pez"
 
-# Asignar password (1234)
+# 7. ASIGNAR CONTRASEÑAS
+# ------------------------------------------------------------------------------
+echo "🔑 Asignando contraseñas..."
 ./kcadm.sh set-password -r spynet-realm --username pepo --new-password 1234
 ./kcadm.sh set-password -r spynet-realm --username pez --new-password 123
 
+# 8. ASIGNAR ROLES A LOS USUARIOS
+# ------------------------------------------------------------------------------
+echo "shield: Asignando permisos (Roles)..."
 
-echo "✅ Usuario 'pepo' creado con password"
-
-# ---------------------------------------------------------
-# 7. ASIGNAR ROLES AL USUARIO
-# ---------------------------------------------------------
-# Asignamos los roles que creamos antes al usuario pepo
+# Pepo -> Rol Básico (Nivel 00)
 ./kcadm.sh add-roles -r spynet-realm --uusername pepo --rolename nivel-00
+
+# Pez -> Rol Premium (Agente Premium - Puede ver /api/satelite)
 ./kcadm.sh add-roles -r spynet-realm --uusername pez --rolename agente-premium
 
-echo "✅ Roles asignados a 'pepo'. ¡Configuración completada!"
+echo "=================================================================="
+echo "✅ ¡CONFIGURACIÓN COMPLETADA EXITOSAMENTE!"
+echo "   - Realm: spynet-realm"
+echo "   - Cliente: agente-web-client (IP: $SERVER_IP)"
+echo "   - Usuario: pepo (Pass: 1234) -> Rol: nivel-00"
+echo "   - Usuario: pez  (Pass: 123)  -> Rol: agente-premium"
+echo "=================================================================="
