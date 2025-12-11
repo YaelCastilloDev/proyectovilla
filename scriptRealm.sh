@@ -59,6 +59,13 @@ echo "✅ Cliente 'agente-web-client' configurado para IP: $SERVER_IP"
   -s firstName="Agente" \
   -s lastName="Pepo"
 
+./kcadm.sh create users -r spynet-realm \
+  -s username=pez \
+  -s enabled=true \
+  -s email=pez@spynet.com \
+  -s firstName="Agente" \
+  -s lastName="Pez"
+
 # Asignar password (1234)
 ./kcadm.sh set-password -r spynet-realm --username pepo --new-password 1234
 ./kcadm.sh set-password -r spynet-realm --username pez --new-password 123
